@@ -3,9 +3,10 @@ name: Build and Release APK
 on:
   push:
     branches: [ "main", "master" ]
-  pull_request:
-    branches: [ "main", "master" ]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -21,24 +22,55 @@ jobs:
         java-version: '17'
         cache: 'gradle'
 
-    - name: Restore Keystore from Base64
+    - name: Ensure Keystore Exists
       run: |
         if [ -f "debug.keystore.base64" ]; then
           echo "Restoring debug.keystore from base64"
           base64 -d debug.keystore.base64 > debug.keystore
         else
-          echo "debug.keystore.base64 not found, fallback to generating keytool"
+          echo "Generating fallback debug.keystore"
           keytool -genkey -v -keystore debug.keystore -alias androiddebugkey -keypass android -storepass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
         fi
 
     - name: Grant Execute Permission to Gradle
       run: chmod +x gradlew
 
-    - name: Build Debug APK
-      run: ./gradlew assembleDebug
+    - name: Build Debug and Release APKs
+      run: ./gradlew assembleDebug assembleRelease
 
-    - name: Upload APK Artifact
+    - name: Prepare APKs for release
+      run: |
+        mkdir -p release-apks
+        cp app/build/outputs/apk/debug/app-debug.apk release-apks/DevicePro-Debug.apk
+        cp app/build/outputs/apk/release/app-release.apk release-apks/DevicePro-Release.apk
+
+    - name: Upload APK Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: DevicePro-Debug-APK
-        path: app/build/outputs/apk/debug/app-debug.apk
+        name: DevicePro-APKs
+        path: release-apks/*
+
+    - name: Create or Update GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: latest-build
+        name: "DevicePro Latest Build"
+        body: |
+          🚀 **DevicePro App Build Pipeline**
+          
+          This is an automated pre-release build compiled continuously on every push.
+          
+          ### 📲 Cara Install ke HP Tanpa Kabel USB (How to Install to Phone conveniently):
+          1. Buka halaman rilis ini di **web browser HP Android Anda** (Chrome, Firefox, dsb).
+          2. Klik link **`DevicePro-Release.apk`** atau **`DevicePro-Debug.apk`** di bawah bagian **Assets** untuk mendownload langsung ke HP.
+          3. Setelah selesai didownload, buka file `.apk` tersebut dari panel notifikasi atau file manager untuk menginstalnya.
+          4. *Jika muncul peringatan keamanan, berikan izin untuk "Install from Unknown Sources" (Instal dari sumber tidak dikenal) pada aplikasi browser Anda.*
+          
+          *Commit SHA: `${{ github.sha }}`*
+        draft: false
+        prerelease: true
+        files: |
+          release-apks/DevicePro-Debug.apk
+          release-apks/DevicePro-Release.apk
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
