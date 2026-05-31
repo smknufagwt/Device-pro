@@ -1,0 +1,6 @@
+{
+  "name": "Device Pro",
+  "description": "A gorgeous, high-fidelity real-time device health, battery, CPU, and memory hardware monitoring dashboard.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
